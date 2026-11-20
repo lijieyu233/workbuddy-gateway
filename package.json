@@ -1,0 +1,33 @@
+{
+  "name": "workbuddy-gateway",
+  "version": "0.1.0",
+  "private": true,
+  "description": "把本机 WorkBuddy 账号池反代成 OpenAI 兼容 API 的独立服务",
+  "type": "module",
+  "main": "src/index.js",
+  "bin": {
+    "workbuddy-gateway": "src/cli.js"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "start": "node src/cli.js",
+    "start:open": "node src/cli.js --open",
+    "start:lan": "node src/cli.js --lan --open",
+    "test": "node --test test/gateway.test.mjs test/abort.test.mjs test/lan.test.mjs test/persist.test.mjs test/modelsettings.test.mjs test/nocooldown.test.mjs test/import.test.mjs test/credits.test.mjs test/checkin.test.mjs test/export.test.mjs test/modelnotfound.test.mjs",
+    "test:e2e": "node test/e2e-real.mjs",
+    "test:realistic": "node test/e2e-realistic.mjs",
+    "test:effort": "node test/e2e-effort.mjs",
+    "test:image": "node test/e2e-image.mjs",
+    "test:failover": "node test/e2e-failover.mjs",
+    "probe": "node test/probe-upstream.mjs",
+    "probe:gate": "node test/probe-channel-gate.mjs",
+    "probe:necessity": "node test/probe-necessity.mjs",
+    "probe:zero-width": "node test/probe-zero-width.mjs"
+  },
+  "optionalDependencies": {
+    "undici": "^7.0.0"
+  },
+  "license": "MIT"
+}

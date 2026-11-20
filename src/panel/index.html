@@ -1,0 +1,1226 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>WorkBuddy 网关</title>
+<style>
+  /* ============================================================
+     主题变量：深色 / 浅色两套，靠 <html data-theme> 切换
+     配色参考：深色近黑蓝底 + 紫罗兰强调；浅色暖白底 + 同色强调
+     ============================================================ */
+  :root[data-theme="dark"] {
+    --bg: #0b1017;
+    --bg-soft: #0f1520;
+    --card: #141b26;
+    --card-hover: #18212e;
+    --line: #1f2937;
+    --line-soft: #1a222e;
+    --text: #e9edf4;
+    --text-2: #b9c3d1;
+    --dim: #8b98ab;
+    --dim-2: #67748a;
+    --accent: #7c6cf5;
+    --accent-soft: #241f4a;
+    --accent-line: #4b3fa8;
+    --green: #4ade80;
+    --green-soft: #16301f;
+    --yellow: #fbbf24;
+    --yellow-soft: #33270c;
+    --red: #f87171;
+    --red-soft: #331417;
+    --icon-bg: #1e2735;
+    --shadow: 0 1px 2px rgba(0,0,0,.4);
+  }
+  :root[data-theme="light"] {
+    --bg: #f6f4f0;
+    --bg-soft: #fbfaf8;
+    --card: #ffffff;
+    --card-hover: #fdfcfb;
+    --line: #e7e3dc;
+    --line-soft: #f0ece6;
+    --text: #1c2128;
+    --text-2: #4b5563;
+    --dim: #6b7280;
+    --dim-2: #9aa3ae;
+    --accent: #6c5ce7;
+    --accent-soft: #eeebfd;
+    --accent-line: #c4bcf5;
+    --green: #16a34a;
+    --green-soft: #e8f6ed;
+    --yellow: #a16207;
+    --yellow-soft: #fdf4df;
+    --red: #dc2626;
+    --red-soft: #fdecec;
+    --icon-bg: #f2efe9;
+    --shadow: 0 1px 2px rgba(16,24,40,.05);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.6 "Segoe UI", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    transition: background .18s, color .18s;
+  }
+  ::selection { background: var(--accent-soft); color: var(--text); }
+  ::-webkit-scrollbar { width: 11px; height: 11px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--line); border-radius: 8px; border: 3px solid transparent; background-clip: content-box; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--dim-2); background-clip: content-box; }
+
+  /* ---------------- 顶部：标题 + 操作 ---------------- */
+  .app { max-width: 1560px; margin: 0 auto; padding: 0 32px 64px; }
+
+  .topbar {
+    display: flex; align-items: center; gap: 12px;
+    height: 46px; margin: 0 -32px; padding: 0 24px 0 32px;
+    -webkit-app-region: drag; user-select: none;
+    background: transparent;
+  }
+  .topbar .tb-label { font-size: 12.5px; color: var(--dim-2); -webkit-app-region: no-drag; }
+  .win-controls { display: none; align-items: stretch; height: 100%; margin-left: auto; -webkit-app-region: no-drag; }
+  .win-controls.enabled { display: flex; }
+  .win-btn {
+    width: 44px; border: 0; border-radius: 0; background: transparent;
+    color: var(--dim); display: grid; place-items: center; cursor: pointer; padding: 0;
+  }
+  .win-btn:hover { background: var(--card); color: var(--text); }
+  .win-btn.close:hover { background: #dc2626; color: #fff; }
+  .win-btn svg { width: 11px; height: 11px; }
+
+  .page-head {
+    display: flex; align-items: flex-start; gap: 20px;
+    padding: 20px 0 22px;
+  }
+  .page-head h1 {
+    margin: 0; font-size: 28px; font-weight: 700;
+    letter-spacing: -.025em; line-height: 1.25;
+  }
+  .page-head .sub {
+    margin: 5px 0 0; font-size: 14px; color: var(--dim);
+  }
+  .head-actions { display: flex; align-items: center; gap: 12px; margin-left: auto; padding-top: 4px; }
+
+  /* 顶部积分块：原来挤在接入卡最右边那一窄条，现在挪到标题旁 */
+  .head-credit { text-align: right; line-height: 1.25; }
+  .head-credit-label {
+    font-size: 11px; color: var(--dim-2); letter-spacing: .05em;
+    text-transform: uppercase; margin-bottom: 3px;
+  }
+  .head-credit-row { display: flex; align-items: center; gap: 7px; justify-content: flex-end; }
+  .head-credit-row strong {
+    font-size: 19px; font-weight: 700; letter-spacing: -.025em;
+    font-variant-numeric: tabular-nums; white-space: nowrap;
+  }
+  .head-credit-of { font-size: 12.5px; color: var(--dim); white-space: nowrap; }
+  .head-credit-track {
+    width: 74px; height: 5px; border-radius: 99px;
+    background: var(--line); overflow: hidden; flex: none;
+  }
+  .head-credit-track > i { display: block; height: 100%; border-radius: 99px; background: var(--accent); transition: width .35s; }
+
+  /* 主题开关 */
+  .theme-switch {
+    display: inline-flex; align-items: center; gap: 9px;
+    padding: 7px 13px; border-radius: 9px;
+    border: 1px solid var(--line); background: var(--card);
+    color: var(--text-2); font-size: 13.5px; cursor: pointer;
+  }
+  .theme-switch:hover { background: var(--card-hover); }
+  .switch-track {
+    width: 34px; height: 19px; border-radius: 99px;
+    background: var(--line); position: relative; flex: none; transition: background .18s;
+  }
+  .switch-track::after {
+    content: ''; position: absolute; top: 3px; left: 3px;
+    width: 13px; height: 13px; border-radius: 50%; background: var(--dim);
+    transition: transform .18s, background .18s;
+  }
+  [data-theme="light"] .switch-track { background: var(--accent-soft); }
+  [data-theme="light"] .switch-track::after { transform: translateX(15px); background: var(--accent); }
+
+  /* ---------------- 页签 ---------------- */
+  .tabs {
+    display: flex; align-items: stretch; gap: 4px;
+    border-bottom: 1px solid var(--line); margin-bottom: 26px;
+  }
+  .tab {
+    background: none; border: 0; border-radius: 0;
+    border-bottom: 2px solid transparent; margin-bottom: -1px;
+    color: var(--dim); font-size: 15px; font-weight: 500;
+    padding: 10px 4px 13px; margin-right: 26px; cursor: pointer;
+    transition: color .14s, border-color .14s;
+    display: inline-flex; align-items: center; gap: 7px;
+  }
+  .tab:hover { color: var(--text-2); background: none; }
+  .tab.active { color: var(--text); border-bottom-color: var(--accent); font-weight: 600; }
+  .tab .cnt { font-size: 13px; color: var(--dim-2); font-weight: 500; font-variant-numeric: tabular-nums; }
+  .tab.active .cnt { color: var(--accent); }
+
+  .view { display: none; }
+  .view.active { display: block; }
+
+  /* ---------------- 工具栏 ---------------- */
+  .toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+  .search {
+    max-width: 340px; padding: 10px 14px;
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 9px; color: var(--text); font-size: 14px;
+  }
+  .search::placeholder { color: var(--dim-2); }
+  .toolbar .grow { flex: 1; }
+
+  /* ---------------- 按钮 ---------------- */
+  button {
+    font: inherit; font-size: 13.5px;
+    color: var(--text-2); background: var(--card);
+    border: 1px solid var(--line); border-radius: 9px;
+    padding: 8px 15px; cursor: pointer;
+    transition: background .13s, border-color .13s, color .13s;
+  }
+  button:hover:not(:disabled) { background: var(--card-hover); color: var(--text); }
+  button:disabled { opacity: .42; cursor: not-allowed; }
+  button.primary {
+    background: var(--accent); border-color: var(--accent);
+    color: #fff; font-weight: 550;
+  }
+  button.primary:hover:not(:disabled) { filter: brightness(1.08); color: #fff; }
+  button.sm { padding: 6px 12px; font-size: 13px; }
+  button.link {
+    background: none; border: 0; padding: 6px 8px; border-radius: 7px;
+    color: var(--text-2); font-size: 13px;
+  }
+  button.link:hover:not(:disabled) { background: var(--card-hover); color: var(--text); }
+  button.link.danger { color: var(--red); }
+  button.link.danger:hover:not(:disabled) { background: var(--red-soft); }
+  button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+    outline: 2px solid var(--accent); outline-offset: 1px;
+  }
+
+  input, select, textarea {
+    font: inherit; font-size: 14px; color: var(--text);
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 9px; padding: 10px 13px; width: 100%;
+  }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); }
+  input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; flex: none; }
+
+  /* ---------------- 接入卡（横跨整行） ---------------- */
+  /* 接入卡：两列等宽等高（地址 + 密钥） */
+  .connect {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 14px; padding: 18px 24px 20px; margin-bottom: 20px;
+    display: grid; gap: 18px 24px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+  }
+  @media (max-width: 900px) { .connect { grid-template-columns: minmax(0, 1fr); } }
+  .connect-field { min-width: 0; display: flex; flex-direction: column; }
+  /* 标签行里放切换按钮，所以用 flex 让标签左、开关右 */
+  .connect-label-row {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 10px; min-height: 22px; margin-bottom: 6px;
+  }
+  .connect-label {
+    font-size: 12px; color: var(--dim-2); letter-spacing: .04em;
+    text-transform: uppercase; line-height: 18px;
+  }
+  .seg-sm > button { padding: 2px 8px; font-size: 11.5px; min-width: 0; }
+  .connect-value {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--bg-soft); border: 1px solid var(--line-soft);
+    border-radius: 9px; padding: 0 12px; height: 41px; flex: 1;
+  }
+  .connect-value code {
+    flex: 1; min-width: 0;
+    font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+    font-size: 13px; color: var(--text);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .copy {
+    background: none; border: 0; padding: 2px 4px; border-radius: 5px;
+    color: var(--dim); cursor: pointer; font-size: 14px; line-height: 1;
+  }
+  .copy:hover:not(:disabled) { color: var(--accent); background: var(--accent-soft); }
+
+  /* ---------------- 卡片网格 ---------------- */
+  .grid {
+    display: grid; gap: 16px;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    /* 同一行内卡片等高：不然有档位按钮的卡片比没档位的矮一截，网格显得参差 */
+    align-items: stretch;
+  }
+  .tile {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 14px; box-shadow: var(--shadow);
+    display: flex; flex-direction: column;
+    transition: border-color .14s, background .14s;
+    min-width: 0;
+    height: 100%;
+  }
+  .tile:hover { background: var(--card-hover); }
+  /* 选中态只描边、不加粗发光；未启用的卡片压暗。
+     否则 60 个模型全部启用时满屏紫框，反而看不出哪个是选中的。 */
+  .tile.sel { border-color: var(--accent-line); }
+  .tile.off { opacity: .55; }
+
+  .tile-body { display: flex; gap: 14px; padding: 18px 20px 16px; flex: 1; min-width: 0; }
+  .tile-icon {
+    width: 54px; height: 54px; border-radius: 12px; flex: none;
+    display: grid; place-items: center;
+    font-size: 21px; font-weight: 600;
+    background: var(--icon-bg); color: var(--dim);
+  }
+  .tile-icon.h0 { background: var(--accent-soft); color: var(--accent); }
+  .tile-icon.h1 { background: var(--green-soft); color: var(--green); }
+  .tile-icon.h2 { background: var(--yellow-soft); color: var(--yellow); }
+  .tile-icon.h3 { background: var(--red-soft); color: var(--red); }
+
+  .tile-text { flex: 1; min-width: 0; }
+  .tile-title {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    font-size: 15px; font-weight: 600; line-height: 1.35;
+  }
+  .tile-line {
+    font-size: 13px; color: var(--dim); margin-top: 3px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .tile-line b { color: var(--text-2); font-weight: 600; font-variant-numeric: tabular-nums; }
+
+  .badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 12px; font-weight: 550; padding: 1px 8px; border-radius: 99px;
+    white-space: nowrap;
+  }
+  .badge.ok { background: var(--green-soft); color: var(--green); }
+  .badge.warn { background: var(--yellow-soft); color: var(--yellow); }
+  .badge.err { background: var(--red-soft); color: var(--red); }
+  .badge.mute { background: var(--icon-bg); color: var(--dim); }
+  .badge.brand { background: var(--accent-soft); color: var(--accent); }
+
+  .tile-foot {
+    display: flex; align-items: center; gap: 2px;
+    padding: 9px 14px; border-top: 1px solid var(--line-soft);
+  }
+  .tile-foot .grow { flex: 1; }
+
+  /* 模型卡的控制区 */
+  .model-ctl { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 0 20px 14px; margin-top: auto; }
+  .ctl-label { font-size: 12.5px; color: var(--dim-2); }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; }
+  .seg > button {
+    border: 0; border-radius: 0; background: transparent;
+    padding: 3px 10px; font-size: 12.5px; color: var(--dim); min-width: 38px;
+  }
+  .seg > button + button { border-left: 1px solid var(--line); }
+  .seg > button.sel { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+  .seg > button:hover:not(.sel) { background: var(--card-hover); color: var(--text-2); }
+  .model-ctl .grow { flex: 1; }
+  .test-out { padding: 0 20px 14px; font-size: 12.5px; color: var(--dim); margin-top: -6px; }
+  .test-out.ok { color: var(--green); }
+  .test-out.err { color: var(--red); }
+
+  .id-chip {
+    font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+    font-size: 11.5px; padding: 1px 7px; border-radius: 5px;
+    background: var(--bg-soft); border: 1px solid var(--line-soft);
+    color: var(--dim); cursor: pointer;
+  }
+  .id-chip:hover { color: var(--accent); border-color: var(--accent-line); }
+
+  /* ---------------- 设置 ---------------- */
+  .settings-wrap { display: grid; gap: 18px; grid-template-columns: minmax(0,1.3fr) minmax(0,1fr); align-items: start; }
+  @media (max-width: 980px) { .settings-wrap { grid-template-columns: minmax(0,1fr); } }
+  .panel-card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 22px 24px; }
+  .panel-card h3 { margin: 0 0 18px; font-size: 15.5px; font-weight: 600; }
+  .frow { display: grid; grid-template-columns: 84px minmax(0,1fr) auto; gap: 12px; align-items: center; }
+  .frow + .frow { margin-top: 14px; }
+  .frow > label { font-size: 13.5px; color: var(--text-2); }
+  .note {
+    font-size: 13px; color: var(--dim); line-height: 1.75;
+    background: var(--bg-soft); border-radius: 9px; padding: 12px 14px; margin: 16px 0 0;
+  }
+  .note code {
+    font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+    font-size: 12.5px; background: var(--icon-bg); border-radius: 4px; padding: 1px 5px;
+  }
+
+  /* ---------------- 表格 ---------------- */
+  .table-wrap { border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: var(--card); }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  th, td { text-align: left; padding: 12px 16px; border-bottom: 1px solid var(--line-soft); white-space: nowrap; }
+  th { font-size: 12.5px; font-weight: 600; color: var(--dim); background: var(--bg-soft); }
+  tbody tr:last-child td { border-bottom: 0; }
+  tbody tr:hover { background: var(--card-hover); }
+  .mono { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; }
+  .dim { color: var(--dim); }
+
+  .empty { padding: 64px 20px; text-align: center; color: var(--dim-2); font-size: 14px; }
+
+  /* ---------------- toast / dialog ---------------- */
+  .toast {
+    position: fixed; left: 50%; bottom: 32px; transform: translateX(-50%) translateY(12px);
+    background: var(--text); color: var(--bg);
+    padding: 12px 20px; border-radius: 10px; font-size: 14px; font-weight: 500;
+    opacity: 0; pointer-events: none; z-index: 99;
+    transition: opacity .2s, transform .2s;
+    box-shadow: 0 10px 30px rgba(0,0,0,.25); max-width: 80vw;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .toast.err { background: var(--red); color: #fff; }
+
+  dialog {
+    border: 1px solid var(--line); border-radius: 14px;
+    background: var(--card); color: var(--text);
+    padding: 26px 28px; max-width: 560px; width: 92vw;
+    box-shadow: 0 24px 64px rgba(0,0,0,.35);
+  }
+  dialog::backdrop { background: rgba(6,10,16,.55); }
+  dialog h3 { margin: 0 0 12px; font-size: 17px; font-weight: 650; }
+  dialog p { margin: 0 0 14px; font-size: 13.5px; color: var(--dim); line-height: 1.75; }
+  .dlg-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 22px; }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div class="topbar">
+    <span class="tb-label">WorkBuddy 网关</span>
+    <div class="win-controls" id="win-controls">
+      <button class="win-btn" id="win-min" title="最小化"><svg viewBox="0 0 12 12"><line x1="1" y1="6" x2="11" y2="6" stroke="currentColor" stroke-width="1.2"/></svg></button>
+      <button class="win-btn" id="win-max" title="最大化"><svg viewBox="0 0 12 12"><rect x="1.5" y="1.5" width="9" height="9" fill="none" stroke="currentColor" stroke-width="1.2"/></svg></button>
+      <button class="win-btn close" id="win-close" title="关闭"><svg viewBox="0 0 12 12"><path d="M2 2 L10 10 M10 2 L2 10" stroke="currentColor" stroke-width="1.3"/></svg></button>
+    </div>
+  </div>
+
+  <div class="page-head">
+    <div>
+      <h1>WorkBuddy 网关</h1>
+      <p class="sub">把本机已登录的 WorkBuddy 账号，反代成 OpenAI 兼容接口</p>
+    </div>
+    <div class="head-actions">
+      <div class="head-credit" id="head-credit">
+        <div class="head-credit-label">积分余额</div>
+        <div class="head-credit-row">
+          <strong id="credit-num">—</strong>
+          <span class="head-credit-of" id="credit-total"></span>
+          <span class="head-credit-track"><i id="credit-bar" style="width:0%"></i></span>
+        </div>
+      </div>
+      <button class="theme-switch" id="theme-toggle">
+        <span class="switch-track"></span><span id="theme-label">深色</span>
+      </button>
+      <button class="sm" id="gw-toggle">运行中</button>
+    </div>
+  </div>
+
+  <nav class="tabs" id="tabs">
+    <button class="tab active" data-tab="accounts">账号<span class="cnt" id="cnt-accounts">0</span></button>
+    <button class="tab" data-tab="models">模型<span class="cnt" id="cnt-models">0</span></button>
+    <button class="tab" data-tab="logs">请求记录</button>
+    <button class="tab" data-tab="settings">设置</button>
+  </nav>
+
+  <!-- ============ 账号 ============ -->
+  <section class="view active" data-view="accounts">
+    <!-- 接入信息：两列等宽等高（地址可切换本机/局域网，密钥一列） -->
+    <div class="connect">
+      <div class="connect-field">
+        <div class="connect-label-row">
+          <span class="connect-label">Base URL</span>
+          <div class="seg seg-sm" id="addr-switch" title="切换本机 / 局域网地址">
+            <button data-addr="local" class="sel">本机</button>
+            <button data-addr="lan" id="addr-lan-btn">局域网</button>
+          </div>
+        </div>
+        <div class="connect-value">
+          <code id="base-url-text">—</code>
+          <button class="copy" data-copy="base-url" title="复制">⧉</button>
+        </div>
+        <input type="hidden" id="base-url" />
+      </div>
+
+      <div class="connect-field">
+        <div class="connect-label-row"><span class="connect-label">API Key</span></div>
+        <div class="connect-value">
+          <code id="api-key-text">—</code>
+          <button class="copy" data-copy="api-key" title="复制">⧉</button>
+        </div>
+        <input type="hidden" id="api-key" />
+      </div>
+    </div>
+
+    <div class="toolbar">
+      <input class="search" id="account-search" placeholder="筛选账号…" />
+      <span class="grow"></span>
+      <button class="sm" id="btn-sync">重新检测</button>
+      <button class="primary" id="btn-add">添加账号</button>
+    </div>
+
+    <div class="grid" id="accounts-body"></div>
+
+  </section>
+
+  <!-- ============ 模型 ============ -->
+  <section class="view" data-view="models">
+    <div class="toolbar">
+      <input class="search" id="model-search" placeholder="筛选模型名称或 id…" />
+      <div class="seg seg-sm" id="model-filter">
+        <button data-filter="all" class="sel">全部</button>
+        <button data-filter="on">已启用</button>
+        <button data-filter="off">未启用</button>
+      </div>
+      <span class="dim" style="font-size:13px" id="catalog-at"></span>
+      <span class="grow"></span>
+      <button class="sm" id="btn-catalog-2">刷新目录</button>
+      <button class="sm" id="btn-enable-all">全部启用</button>
+      <button class="sm" id="btn-disable-all">全部停用</button>
+    </div>
+    <div class="grid" id="models-list"></div>
+    <p class="note">只有勾选的模型会出现在 <code>/v1/models</code> 里。思考档位的改动会写进真实请求。</p>
+  </section>
+
+  <!-- ============ 请求记录 ============ -->
+  <section class="view" data-view="logs">
+    <div class="toolbar">
+      <span class="dim" style="font-size:13.5px" id="log-stats">—</span>
+      <span class="grow"></span>
+      <button class="sm" id="btn-clear-logs">清空</button>
+    </div>
+    <div class="table-wrap" style="max-height:600px;overflow:auto">
+      <table>
+        <thead><tr><th>时间</th><th>模型</th><th>结果</th><th>耗时</th><th>credit</th></tr></thead>
+        <tbody id="logs-body"><tr><td colspan="5" class="empty">暂无记录</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ============ 设置 ============ -->
+  <section class="view" data-view="settings">
+    <div class="settings-wrap">
+      <div class="panel-card">
+        <h3>服务</h3>
+        <div class="frow">
+          <label>监听范围</label>
+          <select id="listen-select">
+            <option value="local">仅本机（127.0.0.1）</option>
+            <option value="lan">局域网（0.0.0.0）</option>
+          </select>
+          <span></span>
+        </div>
+        <p class="note" style="margin-top:10px">当前：<strong id="listen-text">—</strong>。改这里需要重启服务才生效。</p>
+
+        <div class="frow">
+          <label>失败换号</label>
+          <select id="auto-rotate">
+            <option value="on">开启：失败时自动换下一个账号</option>
+            <option value="off">关闭：失败直接报错</option>
+          </select>
+          <button id="save-auto">保存</button>
+        </div>
+
+        <div class="frow">
+          <label>令牌续期</label>
+          <select id="token-refresh">
+            <option value="auto">自动：到期前用网关副本续期</option>
+            <option value="off">关闭：只读桌面端登录态</option>
+          </select>
+          <button id="save-refresh">保存</button>
+        </div>
+
+        <div class="frow">
+          <label>上游代理</label>
+          <input id="proxy-url" placeholder="http://127.0.0.1:7890（留空直连）" />
+          <button id="save-proxy">保存</button>
+        </div>
+      </div>
+
+      <div class="panel-card">
+        <h3>数据与安全</h3>
+        <p class="note" style="margin:0 0 14px">
+          API Key 与账号令牌以 <code>0600</code> 权限保存在
+          <code id="home-hint">~/.workbuddy-gateway</code>，
+          不修改 WorkBuddy 桌面端的认证文件。
+        </p>
+        <p class="note" style="margin:0">
+          账号失败只记录原因，<strong>不冷却、不封锁</strong>；
+          选号时把刚失败的号排在健康号后面，坏号不会拖慢每次请求。
+        </p>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<dialog id="import-dialog">
+  <h3>添加账号</h3>
+  <p>粘贴账号池导出的 JSON。支持数组、<code>{accounts:[…]}</code>、或单个 auth 文档，可一次导入多个。</p>
+  <textarea id="import-text" rows="11" placeholder='[{"access_token":"…","refresh_token":"…","uid":"…","nickname":"…","domain":"www.workbuddy.cn"}]'></textarea>
+  <div class="dlg-actions">
+    <button id="import-cancel">取消</button>
+    <button class="primary" id="import-confirm">导入</button>
+  </div>
+</dialog>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let state = null;
+let keyRevealed = false;
+/** 接入区当前展示的地址类型：local 本机 / lan 局域网 */
+let addrMode = 'local';
+/** 模型筛选：all 全部 / on 已启用 / off 未启用 */
+let modelFilter = 'all';
+
+/* ---------------- 主题 ---------------- */
+function applyTheme(name) {
+  document.documentElement.dataset.theme = name;
+  $('theme-label').textContent = name === 'dark' ? '深色' : '浅色';
+  try { localStorage.setItem('wbg-theme', name); } catch { /* ignore */ }
+}
+$('theme-toggle').addEventListener('click', () => {
+  applyTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
+});
+try {
+  const saved = localStorage.getItem('wbg-theme');
+  if (saved === 'light' || saved === 'dark') applyTheme(saved);
+} catch { /* ignore */ }
+
+/* ---------------- 基础 ---------------- */
+async function api(path, options) {
+  const response = await fetch(path, { headers: { 'content-type': 'application/json' }, ...options });
+  const text = await response.text();
+  let body;
+  try { body = text ? JSON.parse(text) : {}; } catch { body = { raw: text }; }
+  if (!response.ok) throw new Error(body?.error?.message || `HTTP ${response.status}`);
+  return body;
+}
+
+let toastTimer;
+function toast(message, isError) {
+  const el = $('toast');
+  el.textContent = message;
+  el.className = 'toast show' + (isError ? ' err' : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.className = 'toast'; }, 2800);
+}
+
+const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+function shortTokens(n) {
+  if (!Number.isFinite(n)) return '—';
+  if (n >= 1e6) return `${+(n / 1e6).toFixed(2)}M`;
+  if (n >= 1000) return `${Math.round(n / 1000)}K`;
+  return String(n);
+}
+
+/** 用 id 的哈希给图标方块挑一个配色，让卡片之间有区分度又不杂乱 */
+function hueOf(seed) {
+  let h = 0;
+  for (const ch of String(seed)) h = (h * 31 + ch.charCodeAt(0)) % 997;
+  return h % 4;
+}
+
+function confirmDialog({ title, body, confirmText = '确定', cancelText = '取消', danger = false }) {
+  return new Promise((resolve) => {
+    const dialog = document.createElement('dialog');
+    dialog.innerHTML = `<h3>${esc(title)}</h3><p>${body}</p>
+      <div class="dlg-actions">
+        <button data-act="cancel">${esc(cancelText)}</button>
+        <button data-act="ok" class="${danger ? 'primary' : 'primary'}">${esc(confirmText)}</button>
+      </div>`;
+    const finish = (v) => { resolve(v); dialog.close(); dialog.remove(); };
+    dialog.addEventListener('click', (e) => {
+      const act = e.target.closest('[data-act]')?.dataset.act;
+      if (act === 'ok') finish(true); else if (act === 'cancel') finish(false);
+    });
+    dialog.addEventListener('cancel', (e) => { e.preventDefault(); finish(false); });
+    document.body.appendChild(dialog);
+    dialog.showModal();
+  });
+}
+
+/* ---------------- 地址切换（本机 / 局域网） ---------------- */
+
+$('addr-switch').addEventListener('click', (e) => {
+  const button = e.target.closest('[data-addr]');
+  if (!button) return;
+  const next = button.dataset.addr;
+  // 没有局域网地址时不允许切过去，避免显示一个空框
+  if (next === 'lan' && !(state?.endpoint?.lanUrls || []).length) {
+    toast('没有探测到局域网地址', true);
+    return;
+  }
+  addrMode = next;
+  for (const b of $('addr-switch').querySelectorAll('[data-addr]')) {
+    b.classList.toggle('sel', b.dataset.addr === addrMode);
+  }
+  applyBaseUrl();
+});
+
+/** 按当前 addrMode 把地址写进接入框 */
+function applyBaseUrl() {
+  const endpoint = state?.endpoint;
+  if (!endpoint) return;
+  const lanUrls = endpoint.lanUrls || [];
+  const url = addrMode === 'lan' && lanUrls.length ? lanUrls[0] : endpoint.baseUrl;
+  setVal('base-url', url);
+}
+
+/* ---------------- 页签 ---------------- */
+$('tabs').addEventListener('click', (e) => {
+  const tab = e.target.closest('.tab');
+  if (tab) switchTab(tab.dataset.tab);
+});
+function switchTab(name) {
+  for (const t of document.querySelectorAll('.tab')) t.classList.toggle('active', t.dataset.tab === name);
+  for (const v of document.querySelectorAll('.view')) v.classList.toggle('active', v.dataset.view === name);
+  try { localStorage.setItem('wbg-tab', name); } catch { /* ignore */ }
+}
+
+/* ---------------- 渲染 ---------------- */
+function render() {
+  if (!state) return;
+  const { config, pool, accounts, catalog, logs, stats, endpoint, credits } = state;
+
+  const running = config.gatewayEnabled;
+  $('gw-toggle').textContent = running ? '运行中' : '已停止';
+  $('gw-toggle').className = running ? 'sm primary' : 'sm';
+
+  $('cnt-accounts').textContent = `${pool.available}/${pool.total}`;
+  const models = catalog?.models || [];
+  $('cnt-models').textContent = String(models.filter((m) => m.setting?.enabled).length);
+
+  // 接入：地址按当前切换的档位显示；局域网按钮只在真的探测到地址时可用
+  const lanUrls = endpoint.lanUrls || [];
+  applyBaseUrl();
+  const lanBtn = $('addr-lan-btn');
+  if (lanBtn) {
+    lanBtn.disabled = lanUrls.length === 0;
+    lanBtn.title = lanUrls.length ? `切换到 ${lanUrls[0]}` : '没有探测到局域网地址';
+  }
+  // 局域网不可用时，如果当前停在 lan 档位就退回本机
+  if (addrMode === 'lan' && lanUrls.length === 0) {
+    addrMode = 'local';
+    for (const b of $('addr-switch').querySelectorAll('[data-addr]')) {
+      b.classList.toggle('sel', b.dataset.addr === 'local');
+    }
+    applyBaseUrl();
+  }
+
+  // 积分
+  const known = credits && typeof credits.remaining === 'number';
+  const pct = known && credits.size > 0 ? Math.min(100, (credits.remaining / credits.size) * 100) : 0;
+  $('credit-num').textContent = known ? credits.remaining.toFixed(2) : '—';
+  $('credit-total').textContent = known ? `/ ${credits.size.toFixed(0)}` : '';
+  $('credit-bar').style.width = `${pct}%`;
+
+  // 设置字段
+  $('listen-text').textContent = config.listen === 'lan' ? '局域网 0.0.0.0' : '仅本机 127.0.0.1';
+  $('listen-select').value = config.listen;
+  $('proxy-url').value = config.proxyUrl || '';
+  $('token-refresh').value = config.tokenRefresh;
+  $('auto-rotate').value = config.autoRotate ? 'on' : 'off';
+
+  renderAccounts(accounts);
+
+  $('catalog-at').textContent = catalog?.at ? `更新于 ${new Date(catalog.at).toLocaleTimeString()}` : '';
+  const sig = JSON.stringify(models.map((m) => [m.id, m.setting, m.credits]));
+  if (sig !== renderModels._sig) { renderModels._sig = sig; renderModels(models); }
+
+  $('log-stats').textContent = `24 小时 ${stats.last24h} 次 · 失败 ${stats.failed24h} · credit ${stats.credits24h}`;
+  $('logs-body').innerHTML = logs.length === 0
+    ? '<tr><td colspan="5" class="empty">暂无记录</td></tr>'
+    : logs.map((r) => `<tr>
+        <td class="mono dim">${new Date(r.at).toLocaleTimeString()}</td>
+        <td class="mono">${esc(r.model || '')}</td>
+        <td>${r.error ? `<span class="badge err" title="${esc(r.error)}">失败</span>` : `<span class="badge ok">${r.status}</span>`}</td>
+        <td class="mono dim">${r.ms}ms</td>
+        <td class="mono dim">${r.credit ?? '—'}</td>
+      </tr>`).join('');
+}
+
+function setVal(id, value) {
+  const input = $(id); if (input) input.value = value;
+  const text = $(`${id}-text`); if (text) text.textContent = value;
+}
+
+function renderAccounts(accounts) {
+  const host = $('accounts-body');
+  const kw = ($('account-search')?.value || '').trim().toLowerCase();
+  const list = kw
+    ? (accounts || []).filter((a) => String(a.nickname || a.id).toLowerCase().includes(kw))
+    : (accounts || []);
+
+  if (!accounts?.length) {
+    host.innerHTML = '<div class="empty" style="grid-column:1/-1">还没有账号。点「添加账号」或「重新检测」。</div>';
+    return;
+  }
+  if (!list.length) {
+    host.innerHTML = `<div class="empty" style="grid-column:1/-1">没有匹配「${esc(kw)}」的账号</div>`;
+    return;
+  }
+
+  host.innerHTML = list.map((a) => {
+    const failing = Boolean(a.lastError);
+    const label = a.state === 'disabled' ? '已停用' : a.state === 'unavailable' ? '异常' : failing ? '上次失败' : '可用';
+    const cls = a.state === 'disabled' || a.state === 'unavailable' ? 'mute' : failing ? 'warn' : 'ok';
+
+    const c = a.credits;
+    const creditText = c && typeof c.remaining === 'number' ? c.remaining.toFixed(2) : '—';
+    const creditTitle = c && typeof c.remaining === 'number'
+      ? `剩余 ${c.remaining} / 总 ${c.size}（${c.packs} 个资源包）` : '还没查询过余额';
+
+    const ci = a.checkin && typeof a.checkin === 'object' ? a.checkin : null;
+    const checkinText = ci === null ? '—'
+      : ci.today_checked_in === true
+        ? `已签${typeof ci.streak_days === 'number' ? ` ${ci.streak_days} 天` : ''}`
+        : '未签';
+
+    const name = a.nickname || a.uin || a.id;
+    // 账号用"人"的形状做图标，比拿昵称首字更像账号；
+    // 模型那边仍然用首字母（模型名首字有意义，比如 D/G/K）。
+    const avatar = '👤';
+
+    return `<article class="tile" data-tile="${esc(a.id)}">
+      <div class="tile-body">
+        <div class="tile-icon h${hueOf(a.id)}" style="font-size:24px">${avatar}</div>
+        <div class="tile-text">
+          <div class="tile-title">${esc(name)}<span class="badge ${cls}">${label}</span></div>
+          <div class="tile-line" title="${esc(creditTitle)}">积分 <b>${esc(creditText)}</b></div>
+          <div class="tile-line">签到 <b>${esc(checkinText)}</b></div>
+          ${failing ? `<div class="tile-line" style="color:var(--yellow)" title="${esc(a.lastError)}">${esc(String(a.lastError).slice(0, 42))}…</div>` : ''}
+        </div>
+      </div>
+      <div class="tile-foot">
+        <button class="link" data-reset="${a.id}" title="清失败记录并重新拉取余额与签到">刷新</button>
+        <span class="grow"></span>
+        <button class="link" data-probe="${a.id}" title="真实请求，会计费">测试</button>
+        <button class="link" data-usage="${a.id}">查询</button>
+        <button class="link" data-checkin="${a.id}">签到</button>
+        <button class="link" data-export-one="${a.id}" title="导出这个账号，可复制或保存">导出</button>
+        <button class="link danger" data-remove="${a.id}">删除</button>
+      </div>
+    </article>`;
+  }).join('');
+}
+
+$('account-search').addEventListener('input', () => renderAccounts(state?.accounts));
+
+function renderModels(models) {
+  const host = $('models-list');
+  const kw = ($('model-search')?.value || '').trim().toLowerCase();
+  // 先按关键词，再按启用状态筛选；两个条件叠加
+  let list = kw ? models.filter((m) => String(m.name || '').toLowerCase().includes(kw) || m.id.toLowerCase().includes(kw)) : models;
+  if (modelFilter === 'on') list = list.filter((m) => m.setting?.enabled === true);
+  else if (modelFilter === 'off') list = list.filter((m) => m.setting?.enabled !== true);
+
+  if (!models.length) { host.innerHTML = '<div class="empty" style="grid-column:1/-1">还没有读取模型目录</div>'; return; }
+  if (!list.length) {
+    const why = modelFilter === 'on' ? '已启用的模型' : modelFilter === 'off' ? '未启用的模型' : '模型';
+    host.innerHTML = `<div class="empty" style="grid-column:1/-1">没有匹配的${why}${kw ? `（关键词「${esc(kw)}」）` : ''}</div>`;
+    return;
+  }
+
+  const dup = new Map();
+  for (const m of models) {
+    const k = String(m.name || m.id).toLowerCase();
+    dup.set(k, (dup.get(k) || 0) + 1);
+  }
+
+  host.innerHTML = list.map((m) => {
+    const s = m.setting || {};
+    const r = m.reasoning || null;
+    const efforts = r?.supportedEfforts || [];
+    const lengths = m.contextLengths || [];
+    const on = s.enabled === true;
+    const isDup = (dup.get(String(m.name || m.id).toLowerCase()) || 0) > 1;
+    const active = s.effectiveEffort ?? null;
+    const suggested = s.upstreamDefaultEffort ?? r?.defaultEffort ?? null;
+    const single = r?.singleEffort === true && efforts.length === 1;
+    const name = m.name || m.id;
+    const initial = Array.from(String(name))[0] || '?';
+
+    let seg = '';
+    if (efforts.length === 0) {
+      seg = '<span class="ctl-label">不支持思考</span>';
+    } else if (single) {
+      seg = `<span class="ctl-label">思考</span><span class="seg">
+        <button data-effort="" data-model="${esc(m.id)}" class="${active === null ? 'sel' : ''}">关</button>
+        <button data-effort="${esc(efforts[0])}" data-model="${esc(m.id)}" class="${active === efforts[0] ? 'sel' : ''}">${esc(efforts[0])}</button>
+      </span>`;
+    } else {
+      seg = `<span class="ctl-label">思考</span><span class="seg">
+        <button data-effort="" data-model="${esc(m.id)}" class="${active === null ? 'sel' : ''}" title="不思考">关</button>
+        ${efforts.map((e) => `<button data-effort="${esc(e)}" data-model="${esc(m.id)}" class="${active === e ? 'sel' : ''}" title="${suggested === e ? '上游建议档位' : ''}">${esc(e)}</button>`).join('')}
+      </span>`;
+    }
+
+    // 上下文档位：不再重复渲染"上下文"标签——上面 tile-line 已经写了最大上下文。
+    const lenSeg = lengths.length > 1
+      ? `<span class="seg">${lengths.map((l) => `
+          <button data-length="${l}" data-model="${esc(m.id)}" title="上下文档位" class="${(s.contextLength ?? lengths[0]) === l ? 'sel' : ''}">${shortTokens(l)}</button>`).join('')}</span>`
+      : '';
+
+    return `<article class="tile ${on ? 'sel' : 'off'}" data-row="${esc(m.id)}">
+      <div class="tile-body">
+        <div class="tile-icon h${hueOf(m.id)}">${esc(initial)}</div>
+        <div class="tile-text">
+          <div class="tile-title">${esc(name)}
+            ${isDup ? '<span class="badge warn" title="多个模型同名，客户端必须填 id">重名</span>' : ''}
+            ${active === null && efforts.length ? '<span class="badge mute">不思考</span>' : ''}
+          </div>
+          <div class="tile-line">
+            <button class="id-chip" data-copy-text="${esc(m.id)}" title="复制模型 id">${esc(m.id)} ⧉</button>
+          </div>
+          <div class="tile-line">最大输出 ${shortTokens(m.maxOutputTokens)}${m.credits ? ` · ${esc(m.credits)}` : ''}</div>
+        </div>
+        <input type="checkbox" data-enable="${esc(m.id)}" ${on ? 'checked' : ''} title="启用后出现在 /v1/models" />
+      </div>
+      <div class="model-ctl">
+        ${m.supportsImages ? '<span class="badge mute">图片</span>' : ''}
+        ${seg}
+        ${lenSeg}
+        <span class="grow"></span>
+        <button class="link" data-test-model="${esc(m.id)}">测速</button>
+      </div>
+      <div class="test-out" data-out="${esc(m.id)}"></div>
+    </article>`;
+  }).join('');
+}
+
+$('model-search').addEventListener('input', () => {
+  renderModels._sig = undefined;
+  renderModels(state?.catalog?.models || []);
+});
+
+$('model-filter').addEventListener('click', (e) => {
+  const button = e.target.closest('[data-filter]');
+  if (!button) return;
+  modelFilter = button.dataset.filter;
+  for (const b of $('model-filter').querySelectorAll('[data-filter]')) {
+    b.classList.toggle('sel', b.dataset.filter === modelFilter);
+  }
+  renderModels._sig = undefined;
+  renderModels(state?.catalog?.models || []);
+});
+
+/* ---------------- 数据 ---------------- */
+async function refresh() {
+  state = await api('/api/state');
+  if (!keyRevealed) {
+    try {
+      const keys = await api('/api/keys');
+      setVal('api-key', keys.keys[0]?.key || '（无密钥）');
+    } catch { setVal('api-key', '（读取失败）'); }
+  }
+  render();
+}
+
+async function refreshCheckin() {
+  if (!state?.accounts?.length) return;
+  if (!state.accounts.some((a) => a.checkin === undefined || a.checkin === null)) return;
+  try {
+    await api('/api/checkin/refresh', { method: 'POST', body: '{}' });
+    renderModels._sig = undefined;
+    state = await api('/api/state');
+    render();
+  } catch { /* ignore */ }
+}
+
+/* ---------------- 交互 ---------------- */
+document.addEventListener('click', async (e) => {
+  const copy = e.target.closest('[data-copy]');
+  if (copy) {
+    const value = $(copy.dataset.copy)?.value;
+    if (value) { try { await navigator.clipboard.writeText(value); toast('已复制'); } catch { toast('复制失败', true); } }
+    return;
+  }
+  const copyText = e.target.closest('[data-copy-text]');
+  if (copyText) {
+    try { await navigator.clipboard.writeText(copyText.dataset.copyText); toast(`已复制 ${copyText.dataset.copyText}`); }
+    catch { toast('复制失败', true); }
+  }
+});
+
+$('api-key-text').addEventListener('click', async () => {
+  if (keyRevealed) return;
+  try {
+    const r = await api('/api/keys/reveal', { method: 'POST', body: '{}' });
+    setVal('api-key', r.key); keyRevealed = true; toast('已显示完整密钥');
+  } catch (err) { toast(err.message, true); }
+});
+
+$('accounts-body').addEventListener('click', async (e) => {
+  const btn = (n) => e.target.closest(`[data-${n}]`);
+
+  const one = btn('export-one');
+  if (one) { await exportOne(one.dataset.exportOne); return; }
+
+  const probe = btn('probe');
+  if (probe) {
+    probe.disabled = true;
+    try {
+      const r = await api(`/api/accounts/${probe.dataset.probe}/probe`, { method: 'POST', body: '{}' });
+      toast(r.ok ? `可用（${r.model}）` : `不可用：${r.reason}`, !r.ok);
+    } catch (err) { toast(err.message, true); }
+    probe.disabled = false; refresh().catch(() => {}); return;
+  }
+
+  const usage = btn('usage');
+  if (usage) {
+    usage.disabled = true;
+    try {
+      const r = await api(`/api/accounts/${usage.dataset.usage}/usage`, { method: 'POST', body: '{}' });
+      toast(r.credits ? `剩余 ${r.credits.remaining} / ${r.credits.size} credits` : '余额接口没返回数据');
+    } catch (err) { toast(err.message, true); }
+    usage.disabled = false; refresh().catch(() => {}); return;
+  }
+
+  const checkin = btn('checkin');
+  if (checkin) {
+    checkin.disabled = true;
+    try {
+      const r = await api(`/api/accounts/${checkin.dataset.checkin}/checkin`, { method: 'POST', body: '{}' });
+      if (!r.ok) toast(`签到失败：${r.message}`, true);
+      else if (r.alreadyCheckedIn) toast(`今天已签到${r.status?.streak_days != null ? `（连续 ${r.status.streak_days} 天）` : ''}`);
+      else {
+        const p = [];
+        if (typeof r.credit === 'number') p.push(`+${r.credit} 积分`);
+        if (typeof r.streakDays === 'number') p.push(`连续 ${r.streakDays} 天`);
+        toast(`签到成功${p.length ? '：' + p.join(' · ') : ''}`);
+      }
+    } catch (err) { toast(err.message, true); }
+    checkin.disabled = false; refresh().catch(() => {}); return;
+  }
+
+  const reset = btn('reset');
+  if (reset) {
+    reset.disabled = true;
+    try {
+      const r = await api(`/api/accounts/${reset.dataset.reset}/reset`, { method: 'POST', body: '{}' });
+      const p = [];
+      if (r.credits) p.push(`积分 ${r.credits.remaining}`);
+      if (r.checkin?.today_checked_in !== undefined) p.push(r.checkin.today_checked_in ? `已签 ${r.checkin.streak_days ?? ''} 天` : '未签到');
+      toast(r.refreshed === false ? `已清错误，但刷新失败：${r.refreshError}` : `已刷新${p.length ? '：' + p.join(' · ') : ''}`, r.refreshed === false);
+    } catch (err) { toast(err.message, true); }
+    reset.disabled = false; refresh().catch(() => {}); return;
+  }
+
+  const remove = btn('remove');
+  if (remove) {
+    const ok = await confirmDialog({
+      title: '删除账号',
+      body: '只删除网关里的副本，<strong>不会退出</strong> WorkBuddy 桌面端登录。',
+      confirmText: '删除',
+    });
+    if (!ok) return;
+    try {
+      await api(`/api/accounts/${remove.dataset.remove}`, { method: 'DELETE' });
+      toast('已删除');
+    } catch (err) { toast(err.message, true); }
+    refresh().catch(() => {});
+  }
+});
+
+$('models-list').addEventListener('change', (e) => {
+  const enable = e.target.closest('[data-enable]');
+  if (enable) { patchModel(enable.dataset.enable, { enabled: enable.checked }); return; }
+  const dt = e.target.closest('[data-disable-thinking]');
+  if (dt) patchModel(dt.dataset.disableThinking, { disableThinking: dt.checked });
+});
+
+$('models-list').addEventListener('click', (e) => {
+  const effort = e.target.closest('[data-effort]');
+  if (effort && effort.dataset.model) {
+    patchModel(effort.dataset.model, { reasoningEffort: effort.dataset.effort === '' ? null : effort.dataset.effort });
+    return;
+  }
+  const len = e.target.closest('[data-length]');
+  if (len) { patchModel(len.dataset.model, { contextLength: Number(len.dataset.length) }); return; }
+  const test = e.target.closest('[data-test-model]');
+  if (test) testModel(test.dataset.testModel, test);
+});
+
+async function patchModel(modelId, patch) {
+  try {
+    await api('/api/models/settings', { method: 'POST', body: JSON.stringify({ modelId, ...patch }) });
+  } catch (err) { toast(err.message, true); }
+  renderModels._sig = undefined;
+  await refresh();
+}
+
+async function testModel(modelId, button) {
+  const out = document.querySelector(`[data-out="${CSS.escape(modelId)}"]`);
+  button.disabled = true;
+  if (out) { out.className = 'test-out'; out.textContent = '请求中…'; }
+  try {
+    const r = await api('/api/models/test', { method: 'POST', body: JSON.stringify({ modelId }) });
+    if (out) {
+      out.className = 'test-out ok';
+      out.textContent = `首字 ${r.firstTokenMs}ms · 总 ${r.totalMs}ms · 思考 ${r.reasoningTokens} token · 输出 ${r.completionTokens} token`;
+    }
+  } catch (err) {
+    if (out) { out.className = 'test-out err'; out.textContent = `失败：${err.message}`; }
+  } finally { button.disabled = false; }
+}
+
+$('btn-catalog-2').addEventListener('click', async () => {
+  toast('正在读取模型目录…');
+  try {
+    const r = await api('/api/catalog/refresh', { method: 'POST', body: '{}' });
+    toast(`已读取 ${r.count} 个模型`);
+  } catch (err) { toast(err.message, true); }
+  renderModels._sig = undefined;
+  refresh().catch(() => {});
+});
+
+$('btn-enable-all').addEventListener('click', () => setAll(true));
+$('btn-disable-all').addEventListener('click', () => setAll(false));
+async function setAll(enabled) {
+  try {
+    const r = await api('/api/models/enable-all', { method: 'POST', body: JSON.stringify({ enabled }) });
+    toast(`${enabled ? '已启用' : '已停用'} ${r.count} 个模型`);
+  } catch (err) { toast(err.message, true); }
+  renderModels._sig = undefined;
+  refresh().catch(() => {});
+}
+
+/**
+ * 导出单个账号：弹出面板显示明文 JSON，可以复制或另存。
+ * 不直接下载文件——多数时候只是想粘到别处，直接弹下载反而多一步。
+ */
+async function exportOne(id) {
+  let json;
+  try {
+    const data = await api(`/api/accounts/export?ids=${encodeURIComponent(id)}`);
+    json = JSON.stringify(data, null, 2);
+  } catch (err) { toast(err.message, true); return; }
+
+  const account = (state?.accounts || []).find((a) => a.id === id);
+  const dialog = document.createElement('dialog');
+  dialog.innerHTML = `
+    <h3>导出账号</h3>
+    <p>${esc(account?.nickname || id)} · 下面是<strong>明文</strong>令牌，任何拿到它的人都能使用你的额度。</p>
+    <textarea id="export-text" rows="10" readonly style="font-family:ui-monospace,Consolas,monospace;font-size:12px"></textarea>
+    <div class="dlg-actions">
+      <button data-act="close">关闭</button>
+      <button data-act="save">保存为文件</button>
+      <button class="primary" data-act="copy">复制</button>
+    </div>`;
+  document.body.appendChild(dialog);
+  dialog.querySelector('#export-text').value = json;
+  dialog.showModal();
+
+  const close = () => { dialog.close(); dialog.remove(); };
+  dialog.addEventListener('click', async (e) => {
+    const act = e.target.closest('[data-act]')?.dataset.act;
+    if (act === 'close') { close(); return; }
+    if (act === 'copy') {
+      try { await navigator.clipboard.writeText(json); toast('已复制到剪贴板'); }
+      catch {
+        // 剪贴板被拒时退回到选中文本，至少能手动 Ctrl+C
+        const ta = dialog.querySelector('#export-text');
+        ta.focus(); ta.select();
+        toast('已选中，请按 Ctrl+C', true);
+      }
+      return;
+    }
+    if (act === 'save') {
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(new Blob([`${json}\n`], { type: 'application/json' }));
+      const safeName = String(account?.nickname || id).replace(/[\\/:*?"<>|]/g, '_');
+      link.download = `workbuddy-${safeName}.json`;
+      link.click();
+      URL.revokeObjectURL(link.href);
+      toast('已保存');
+    }
+  });
+  dialog.addEventListener('cancel', (e) => { e.preventDefault(); close(); });
+}
+
+$('gw-toggle').addEventListener('click', async () => {
+  try { await api('/api/gateway', { method: 'POST', body: JSON.stringify({ enabled: !state.config.gatewayEnabled }) }); }
+  catch (err) { toast(err.message, true); }
+  refresh().catch(() => {});
+});
+
+$('btn-sync').addEventListener('click', async () => {
+  try {
+    const r = await api('/api/sync-accounts', { method: 'POST', body: '{}' });
+    toast(`扫描 ${r.scanned} 份登录态，新增 ${r.added}`);
+  } catch (err) { toast(err.message, true); }
+  refresh().catch(() => {});
+});
+
+$('btn-clear-logs').addEventListener('click', async () => {
+  await api('/api/logs/clear', { method: 'POST', body: '{}' });
+  toast('已清空');
+  refresh().catch(() => {});
+});
+
+$('listen-select').addEventListener('change', async (e) => {
+  await api('/api/config', { method: 'POST', body: JSON.stringify({ listen: e.target.value }) });
+  toast('已保存，重启后生效');
+  refresh().catch(() => {});
+});
+$('save-proxy').addEventListener('click', async () => {
+  await api('/api/config', { method: 'POST', body: JSON.stringify({ proxyUrl: $('proxy-url').value.trim() }) });
+  toast('已保存，重启后生效');
+});
+$('save-refresh').addEventListener('click', async () => {
+  await api('/api/config', { method: 'POST', body: JSON.stringify({ tokenRefresh: $('token-refresh').value }) });
+  toast('已保存');
+});
+$('save-auto').addEventListener('click', async () => {
+  await api('/api/config', { method: 'POST', body: JSON.stringify({ autoRotate: $('auto-rotate').value === 'on' }) });
+  toast('已保存');
+});
+
+const dlg = $('import-dialog');
+$('btn-add').addEventListener('click', () => { $('import-text').value = ''; dlg.showModal(); });
+$('import-cancel').addEventListener('click', () => dlg.close());
+$('import-confirm').addEventListener('click', async () => {
+  try {
+    const r = await api('/api/accounts/import', { method: 'POST', body: JSON.stringify({ text: $('import-text').value }) });
+    const p = [`新增 ${r.added}`];
+    if (r.existed) p.push(`已存在 ${r.existed}`);
+    if (r.errors?.length) p.push(`跳过 ${r.errors.length}`);
+    toast(`导入完成：${p.join(' · ')}`);
+    dlg.close();
+    refresh().catch(() => {});
+  } catch (err) { toast(err.message, true); }
+});
+
+/* ---------------- 窗口控制 ---------------- */
+if (window.desktopWindow) {
+  $('win-controls').classList.add('enabled');
+  $('win-min').addEventListener('click', () => window.desktopWindow.minimize());
+  $('win-max').addEventListener('click', () => window.desktopWindow.toggleMaximize());
+  $('win-close').addEventListener('click', () => window.desktopWindow.close());
+  window.desktopWindow.onStateChange?.(({ maximized }) => {
+    $('win-max').innerHTML = maximized
+      ? '<svg viewBox="0 0 12 12"><rect x="1" y="3.2" width="7.8" height="7.8" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M3.2 3.2 V1.2 H11 V9 H8.8" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>'
+      : '<svg viewBox="0 0 12 12"><rect x="1.5" y="1.5" width="9" height="9" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>';
+    $('win-max').title = maximized ? '还原' : '最大化';
+  });
+  document.querySelector('.topbar').addEventListener('dblclick', (e) => {
+    if (e.target.closest('button')) return;
+    window.desktopWindow.toggleMaximize();
+  });
+}
+
+/* ---------------- 启动 ---------------- */
+try {
+  const savedTab = localStorage.getItem('wbg-tab');
+  if (savedTab) switchTab(savedTab);
+} catch { /* ignore */ }
+
+refresh().then(refreshCheckin).catch((err) => toast(err.message, true));
+setInterval(() => refresh().catch(() => {}), 5000);
+</script>
+</body>
+</html>

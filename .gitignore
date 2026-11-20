@@ -1,0 +1,17 @@
+# 依赖（体积大，且应由 npm install 重建）
+node_modules/
+
+# 网关本地数据：账号令牌、API Key、请求日志都在这里
+# 这是最关键的排除项——提交出去等于公开所有账号凭据
+.devhome/
+*.log
+
+# 导出/导入时可能落在项目目录里的账号文件
+workbuddy-accounts*.json
+*.sample.json
+
+# 编辑器与系统
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
